@@ -6,6 +6,35 @@ This repo currently runs **without any backend** (all data is stored locally on-
 
 ---
 
+## Tech stack
+
+- **Flutter (Material 3)** + **Dart**
+- **Navigation:** `go_router` (use `context.go / context.push / context.pop`)
+- **State management:** `provider` + `ChangeNotifier` (`AppController`)
+- **Persistence (Phase 1):** `shared_preferences` via `LocalStorageService` (local-first, on-device)
+- **Platforms:** Android / iOS / Web (Dreamflow runs with CanvasKit)
+
+---
+
+## Architecture (Phase 1: local-first)
+
+The app is intentionally structured so Phase 1 stays simple (no backend), while Phase 2+ can swap persistence/auth without rewriting UI.
+
+- **UI layer**: `lib/pages/*` and `lib/widgets/*`
+  - Pages own layout and user interactions.
+  - Reusable UI pieces live under `widgets/`.
+- **Controller layer**: `lib/controllers/app_controller.dart`
+  - Single source of truth for the current trip, usage log, premium flag, and derived totals.
+  - Exposes commands (save trip, log usage, consume planned meal, etc.) and notifies listeners.
+- **Domain models**: `lib/models/*`
+  - `Trip`, `PlannedMeal`, `UsageEntry`, `AppUser`
+  - JSON serialization (`toJson/fromJson`) + immutable updates (`copyWith`).
+- **Services (data access)**: `lib/services/local_storage_service.dart`
+  - Reads/writes models to local storage.
+  - This is the main seam for future Firebase/Supabase integration.
+- **Routing**: `lib/nav.dart` + `go_router`
+  - Centralized route table (avoid `Navigator.push`).
+
 ## Current feature list (Phase 1)
 
 ### Trip setup

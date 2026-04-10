@@ -144,11 +144,11 @@ All UI listens via `Provider.watch<AppController>()`.
 
 7. **Step 5: Choose Your Dining Option** (step 4)
    - App calculates:
-     - **Out of Pocket:** ~$425 (meals + snacks)
-     - **Quick-Service Plan:** $483.76 (2 adults × $60.47 + 2 kids × $47.17)
-     - **Standard Plan:** $788.72 (2 adults × $98.59 + 2 kids × $76.89)
+     - **Out of Pocket:** ~$425 (meals + snacks for 6 nights)
+     - **Quick-Service Plan:** $1,291.68 (2 adults × $60.47 × 6 nights + 2 kids × $47.17 × 6 nights)
+     - **Standard Plan:** $2,105.76 (2 adults × $98.59 × 6 nights + 2 kids × $76.89 × 6 nights)
    - Recommendation: **Out of Pocket** (cheapest)
-   - But family wants signature dining → choose **Standard Plan** anyway
+   - But family wants signature dining → choose **Standard Plan** anyway (for access to Be Our Guest)
    - Tap **Continue**
 
 8. **Step 6: Review & Confirm** (step 5)
@@ -159,10 +159,10 @@ All UI listens via `Provider.watch<AppController>()`.
 
 9. **Dashboard** (`/app/dashboard`)
    - Credit summary shows:
-     - **QS:** 24 used / 0 remaining (2 × 1 × 6 nights)
-     - **TS:** 24 used / 0 remaining (2 × 1 × 6 nights)
-     - **Snacks:** 36 used / 0 remaining (4 × 1.5 avg × 6 nights)
-   - "Worth It?" card: Plan costs $788.72, estimated value is $425. **Net cost: $363.72 for signature dining + peace of mind.**
+     - **QS:** 24 total (2 adults × 1 × 6 nights, 2 kids × 1 × 6 nights)
+     - **TS:** 24 total (2 adults × 1 × 6 nights, 2 kids × 1 × 6 nights)
+     - **Snacks:** 24 total (4 people × 1 × 6 nights)
+   - "Worth It?" card: Plan costs $2,105.76, estimated cash value is ~$425. **Net cost: $1,680.76 but includes signature dining access.**
    - Tip: "You have 24 TS credits — don't miss those table-service meals!"
 
 10. **First day — Log page** (`/app/logs`)

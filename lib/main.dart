@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import 'dart:ui';
 import 'package:provider/provider.dart';
 
 import 'package:mouseplate/controllers/app_controller.dart';
@@ -12,7 +11,7 @@ import 'package:mouseplate/theme.dart';
 ///
 /// This sets up:
 /// - go_router navigation
-/// - Material 3 theming with light/dark modes
+/// - Material 3 dark UI (`theme` and `darkTheme` both use [darkTheme] so they never mix)
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -72,14 +71,15 @@ class MyApp extends StatelessWidget {
     //     routerConfig: AppRouter.router,
     //   ),
     // );
+    // Single visual theme in both slots so Material never mixes light `theme` with dark widgets.
+    final uiTheme = darkTheme;
     return MaterialApp.router(
       title: 'Enchanted Credits',
       debugShowCheckedModeBanner: false,
 
-      // Theme configuration
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
+      theme: uiTheme,
+      darkTheme: uiTheme,
+      themeMode: ThemeMode.dark,
 
       // Router configuration
       routerConfig: AppRouter.router(Provider.of<AppController>(context, listen: false)),

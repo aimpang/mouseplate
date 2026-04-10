@@ -5,11 +5,19 @@ import 'package:provider/provider.dart';
 import 'package:mouseplate/controllers/app_controller.dart';
 import 'package:mouseplate/models/trip.dart';
 import 'package:mouseplate/nav.dart';
+import 'package:mouseplate/services/export_service.dart';
 import 'package:mouseplate/theme.dart';
 import 'package:mouseplate/widgets/app_shell.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool _exportLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +61,12 @@ class SettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.picture_as_pdf_rounded,
             title: 'Export trip summary (PDF)',
-            subtitle: controller.premiumUnlocked ? 'Coming soon in this prototype' : 'Premium only',
-            onTap: controller.premiumUnlocked ? () => _showComingSoon(context) : () => context.push(AppRoutes.paywall),
+            subtitle: controller.premiumUnlocked ? 'Trip details, credits, planned meals & usage log' : 'Premium only',
+            onTap: (controller.premiumUnlocked && trip != null && !_exportLoading) ? () => _exportPdf(context) : (!controller.premiumUnlocked ? () => context.push(AppRoutes.paywall) : null),
             trailing: controller.premiumUnlocked
-                ? Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.55))
+                ? (_exportLoading
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: cs.onSurface.withValues(alpha: 0.55)))
+                    : Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.55)))
                 : Icon(Icons.lock_rounded, color: cs.onSurface.withValues(alpha: 0.55)),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -130,14 +140,20 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
-  void _showComingSoon(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('PDF export is a Premium feature — coming soon.'),
-        backgroundColor: cs.surfaceContainerHighest,
-      ),
-    );
+  Future<void> _exportPdf(BuildContext context) async {
+    final controller = context.read<AppController>();
+    final trip = controller.trip;
+    if (trip == null) return;
+    setState(() => _exportLoading = true);
+    try {
+      await ExportService.generateAndSharePdf(trip: trip, usage: controller.usage);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _exportLoading = false);
+    }
   }
 }
 
@@ -192,7 +208,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75))),
+      child: Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.78))),
     );
   }
 }

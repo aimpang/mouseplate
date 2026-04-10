@@ -24,6 +24,9 @@ class UsageEntry {
   ///
   /// If provided, we can compute “value realized” vs plan cost.
   final double? value;
+
+  /// How many credits this entry consumed (1 for standard, 2 for Signature Dining).
+  final int credits;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +38,7 @@ class UsageEntry {
     required this.updatedAt,
     this.note,
     this.value,
+    this.credits = 1,
   });
 
   Map<String, dynamic> toJson() => {
@@ -43,6 +47,7 @@ class UsageEntry {
     'usedAt': usedAt.toIso8601String(),
     'note': note,
     'value': value,
+    'credits': credits,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -57,6 +62,7 @@ class UsageEntry {
       usedAt: parseDate('usedAt'),
       note: _parseNote(json['note']),
       value: _parseValue(json['value']),
+      credits: (json['credits'] as num?)?.toInt() ?? 1,
       createdAt: parseDate('createdAt'),
       updatedAt: parseDate('updatedAt'),
     );
@@ -87,6 +93,7 @@ class UsageEntry {
     DateTime? usedAt,
     String? note,
     double? value,
+    int? credits,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -96,6 +103,7 @@ class UsageEntry {
         usedAt: usedAt ?? this.usedAt,
         note: note ?? this.note,
         value: value ?? this.value,
+        credits: credits ?? this.credits,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );

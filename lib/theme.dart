@@ -1,6 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// =============================================================================
+// COLOR & DESIGN HELPERS
+// =============================================================================
+
+/// Gold accent tokens for Disney-esque sparkle elements
+class AppColors {
+  static const gold = Color(0xFFE8B84B);
+  static const goldSurface = Color(0xFFFDF3D7);
+  static const goldOnSurface = Color(0xFF6B4A00);
+  static const goldDark = Color(0xFFF5CC6A);
+  static const goldSurfaceDark = Color(0xFF3D2E00);
+}
+
+/// Predefined shadow sets for consistent elevation and depth
+class AppShadows {
+  /// Subtle ambient card lift — replaces zero-elevation look
+  static const List<BoxShadow> cardFloat = [
+    BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 1)),
+  ];
+
+  /// Stronger glow for hero elements (stat card, key CTA)
+  static const List<BoxShadow> cardLift = [
+    BoxShadow(color: Color(0x14000000), blurRadius: 20, offset: Offset(0, 6)),
+    BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+
+  /// Primary-colored glow for CTA buttons
+  static List<BoxShadow> primaryGlow(Color primary) => [
+    BoxShadow(color: primary.withValues(alpha: 0.28), blurRadius: 16, offset: const Offset(0, 6)),
+  ];
+}
+
+/// Gradient presets for atmospheric page backgrounds and hero sections
+class AppGradients {
+  /// Page-level atmospheric gradient (very subtle, nearly imperceptible)
+  static const pageBackground = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFFFF9F4), Color(0xFFFFFBF8)],
+  );
+
+  /// Shell / full-page canvas — **must** follow [ColorScheme]. A fixed light gradient
+  /// under dark [ThemeData] made the UI look like two themes stacked.
+  static LinearGradient pageBackgroundFor(ColorScheme cs) {
+    if (cs.brightness == Brightness.dark) {
+      final bottom = cs.surface;
+      final top = Color.alphaBlend(cs.primary.withValues(alpha: 0.10), bottom);
+      return LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [top, bottom],
+      );
+    }
+    return pageBackground;
+  }
+
+  /// Primary-tinted hero card gradient (for TripHeader, WelcomePage hero)
+  static LinearGradient heroCard(Color primary) => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primary.withValues(alpha: 0.10), primary.withValues(alpha: 0.04)],
+  );
+
+  /// Gold shimmer gradient for sparkle badge
+  static const goldShimmer = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFDF3D7), Color(0xFFF5E0A0)],
+  );
+}
+
 class AppSpacing {
   // Spacing values
   static const double xs = 4.0;
@@ -67,16 +139,19 @@ extension TextStyleContext on BuildContext {
 ///
 /// In light mode we want a slightly-solid tinted fill (not translucent), so
 /// borders remain visible against the bright background.
+///
+/// Light: maps to [ColorScheme.surfaceContainer] / Low / High (distinct ladder).
+/// Dark: translucent elevated surfaces.
 extension AppSurfaceColors on ColorScheme {
   /// Default background for card-like containers.
   Color get appCardBackground =>
-      brightness == Brightness.light ? surfaceContainerLow : surfaceContainerHighest.withValues(alpha: 0.35);
+      brightness == Brightness.light ? surfaceContainer : surfaceContainerHighest.withValues(alpha: 0.35);
 
   /// Slightly stronger background for emphasis sections (still subtle).
   Color get appCardBackgroundStrong =>
-      brightness == Brightness.light ? surfaceContainerLow : surfaceContainerHighest.withValues(alpha: 0.40);
+      brightness == Brightness.light ? surfaceContainerHigh : surfaceContainerHighest.withValues(alpha: 0.40);
 
-  /// Slightly softer background for secondary card-like rows.
+  /// Softer / inset background for secondary rows (list tiles, etc.).
   Color get appCardBackgroundSubtle =>
       brightness == Brightness.light ? surfaceContainerLow : surfaceContainerHighest.withValues(alpha: 0.30);
 }
@@ -132,20 +207,19 @@ class LightModeColors {
   static const lightErrorContainer = Color(0xFFFFDAD6);
   static const lightOnErrorContainer = Color(0xFF410002);
 
-  // Surface and background: warm, vacation-y whites
-  static const lightSurface = Color(0xFFFFFDFB);
+  // Surface and background: warm scaffold vs cooler “sheet” surfaces for contrast
   static const lightOnSurface = Color(0xFF1B1B1F);
+  /// Warm canvas (scaffold + page gradient end) — distinct from [lightSurface].
   static const lightBackground = Color(0xFFFFFBF8);
+  /// App bars, nav bar, icon wells — slightly cooler than background so chips read as separate sheets.
+  static const lightSurface = Color(0xFFFCFAFE);
   static const lightSurfaceVariant = Color(0xFFF2EEF8);
   static const lightOnSurfaceVariant = Color(0xFF4A4653);
 
-  /// A slightly elevated “card” surface for light mode.
-  ///
-  /// This is intentionally just a touch cooler/brighter than [lightSurface] so
-  /// cards remain visible against the warm background without needing shadows.
-  // Increased contrast slightly so cards read clearly on very bright displays.
-  // (Still subtle—meant to feel like a gentle lilac-tinted paper.)
+  /// M3-style ladder: subtle (inset) → default card → strong emphasis — all distinct in light mode.
+  static const lightCardSurfaceSubtle = Color(0xFFF6F1FC);
   static const lightCardSurface = Color(0xFFF1ECFF);
+  static const lightCardSurfaceStrong = Color(0xFFEAE4FA);
 
   // Outline and shadow
   static const lightOutline = Color(0xFF7C7688);
@@ -209,9 +283,8 @@ class FontSizes {
 /// Light theme with modern, neutral aesthetic
 ThemeData get lightTheme => ThemeData(
   useMaterial3: true,
-  splashFactory: NoSplash.splashFactory,
+  splashFactory: InkSparkle.splashFactory,
   highlightColor: Colors.transparent,
-  splashColor: Colors.transparent,
   colorScheme: ColorScheme.light(
     primary: LightModeColors.lightPrimary,
     onPrimary: LightModeColors.lightOnPrimary,
@@ -227,7 +300,10 @@ ThemeData get lightTheme => ThemeData(
     onErrorContainer: LightModeColors.lightOnErrorContainer,
     surface: LightModeColors.lightSurface,
     onSurface: LightModeColors.lightOnSurface,
-    surfaceContainerLow: LightModeColors.lightCardSurface,
+    surfaceContainerLowest: LightModeColors.lightBackground,
+    surfaceContainerLow: LightModeColors.lightCardSurfaceSubtle,
+    surfaceContainer: LightModeColors.lightCardSurface,
+    surfaceContainerHigh: LightModeColors.lightCardSurfaceStrong,
     surfaceContainerHighest: LightModeColors.lightSurfaceVariant,
     onSurfaceVariant: LightModeColors.lightOnSurfaceVariant,
     outline: LightModeColors.lightOutline,
@@ -236,11 +312,15 @@ ThemeData get lightTheme => ThemeData(
   ),
   brightness: Brightness.light,
   scaffoldBackgroundColor: LightModeColors.lightBackground,
+  // Avoid default pure-white canvas showing through gaps; matches page warmth.
+  canvasColor: LightModeColors.lightBackground,
   appBarTheme: const AppBarTheme(
     backgroundColor: Colors.transparent,
     foregroundColor: LightModeColors.lightOnSurface,
     elevation: 0,
     scrolledUnderElevation: 0,
+    surfaceTintColor: Colors.transparent,
+    shadowColor: Colors.transparent,
   ),
   cardTheme: CardThemeData(
     color: LightModeColors.lightCardSurface,
@@ -250,8 +330,7 @@ ThemeData get lightTheme => ThemeData(
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
       side: BorderSide(
-        // Slightly stronger than before so cards are visible in bright light.
-        color: LightModeColors.lightOutline.withValues(alpha: 0.32),
+        color: LightModeColors.lightOutline.withValues(alpha: 0.38),
         width: 1,
       ),
     ),
@@ -263,6 +342,8 @@ ThemeData get lightTheme => ThemeData(
   ),
   filledButtonTheme: FilledButtonThemeData(
     style: FilledButton.styleFrom(
+      elevation: 4,
+      shadowColor: LightModeColors.lightPrimary.withValues(alpha: 0.35),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
     ),
@@ -283,18 +364,39 @@ ThemeData get lightTheme => ThemeData(
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   ),
   navigationBarTheme: NavigationBarThemeData(
-    height: 72,
-    labelTextStyle: WidgetStatePropertyAll(TextStyle(color: LightModeColors.lightOnSurface.withValues(alpha: 0.80))),
+    height: 68,
+    backgroundColor: LightModeColors.lightSurface,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    indicatorColor: LightModeColors.lightPrimaryContainer,
+    indicatorShape: const StadiumBorder(),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      final selected = states.contains(WidgetState.selected);
+      return GoogleFonts.nunito(
+        fontSize: 11,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        color: selected ? LightModeColors.lightPrimary : LightModeColors.lightOnSurface.withValues(alpha: 0.60),
+      );
+    }),
+    iconTheme: WidgetStateProperty.resolveWith((states) {
+      return IconThemeData(
+        color: states.contains(WidgetState.selected)
+            ? LightModeColors.lightPrimary
+            : LightModeColors.lightOnSurface.withValues(alpha: 0.50),
+      );
+    }),
   ),
-  textTheme: _buildTextTheme(Brightness.light),
+  textTheme: _buildTextTheme(Brightness.light).apply(
+    bodyColor: LightModeColors.lightOnSurface,
+    displayColor: LightModeColors.lightOnSurface,
+  ),
 );
 
 /// Dark theme with good contrast and readability
 ThemeData get darkTheme => ThemeData(
   useMaterial3: true,
-  splashFactory: NoSplash.splashFactory,
+  splashFactory: InkSparkle.splashFactory,
   highlightColor: Colors.transparent,
-  splashColor: Colors.transparent,
   colorScheme: ColorScheme.dark(
     primary: DarkModeColors.darkPrimary,
     onPrimary: DarkModeColors.darkOnPrimary,
@@ -318,11 +420,14 @@ ThemeData get darkTheme => ThemeData(
   ),
   brightness: Brightness.dark,
   scaffoldBackgroundColor: DarkModeColors.darkSurface,
+  canvasColor: DarkModeColors.darkSurface,
   appBarTheme: const AppBarTheme(
     backgroundColor: Colors.transparent,
     foregroundColor: DarkModeColors.darkOnSurface,
     elevation: 0,
     scrolledUnderElevation: 0,
+    surfaceTintColor: Colors.transparent,
+    shadowColor: Colors.transparent,
   ),
   cardTheme: CardThemeData(
     elevation: 0,
@@ -336,6 +441,8 @@ ThemeData get darkTheme => ThemeData(
   ),
   filledButtonTheme: FilledButtonThemeData(
     style: FilledButton.styleFrom(
+      elevation: 4,
+      shadowColor: DarkModeColors.darkPrimary.withValues(alpha: 0.35),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
     ),
@@ -355,38 +462,60 @@ ThemeData get darkTheme => ThemeData(
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   ),
   navigationBarTheme: NavigationBarThemeData(
-    height: 72,
-    labelTextStyle: WidgetStatePropertyAll(TextStyle(color: DarkModeColors.darkOnSurface.withValues(alpha: 0.80))),
+    height: 68,
+    backgroundColor: DarkModeColors.darkSurface,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    indicatorColor: DarkModeColors.darkPrimaryContainer,
+    indicatorShape: const StadiumBorder(),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      final selected = states.contains(WidgetState.selected);
+      return GoogleFonts.nunito(
+        fontSize: 11,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        color: selected ? DarkModeColors.darkPrimary : DarkModeColors.darkOnSurface.withValues(alpha: 0.60),
+      );
+    }),
+    iconTheme: WidgetStateProperty.resolveWith((states) {
+      return IconThemeData(
+        color: states.contains(WidgetState.selected)
+            ? DarkModeColors.darkPrimary
+            : DarkModeColors.darkOnSurface.withValues(alpha: 0.50),
+      );
+    }),
   ),
-  textTheme: _buildTextTheme(Brightness.dark),
+  textTheme: _buildTextTheme(Brightness.dark).apply(
+    bodyColor: DarkModeColors.darkOnSurface,
+    displayColor: DarkModeColors.darkOnSurface,
+  ),
 );
 
-/// Build text theme using Inter font family
+/// Build text theme using Playfair Display for headlines + Nunito for body
 TextTheme _buildTextTheme(Brightness brightness) {
   return TextTheme(
-    displayLarge: GoogleFonts.nunito(
+    displayLarge: GoogleFonts.playfairDisplay(
       fontSize: FontSizes.displayLarge,
-      fontWeight: FontWeight.w400,
-      letterSpacing: -0.25,
-    ),
-    displayMedium: GoogleFonts.nunito(
-      fontSize: FontSizes.displayMedium,
-      fontWeight: FontWeight.w400,
-    ),
-    displaySmall: GoogleFonts.nunito(
-      fontSize: FontSizes.displaySmall,
-      fontWeight: FontWeight.w400,
-    ),
-    headlineLarge: GoogleFonts.nunito(
-      fontSize: FontSizes.headlineLarge,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.5,
     ),
-    headlineMedium: GoogleFonts.nunito(
+    displayMedium: GoogleFonts.playfairDisplay(
+      fontSize: FontSizes.displayMedium,
+      fontWeight: FontWeight.w700,
+    ),
+    displaySmall: GoogleFonts.playfairDisplay(
+      fontSize: FontSizes.displaySmall,
+      fontWeight: FontWeight.w700,
+    ),
+    headlineLarge: GoogleFonts.playfairDisplay(
+      fontSize: FontSizes.headlineLarge,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.3,
+    ),
+    headlineMedium: GoogleFonts.playfairDisplay(
       fontSize: FontSizes.headlineMedium,
       fontWeight: FontWeight.w600,
     ),
-    headlineSmall: GoogleFonts.nunito(
+    headlineSmall: GoogleFonts.playfairDisplay(
       fontSize: FontSizes.headlineSmall,
       fontWeight: FontWeight.w600,
     ),

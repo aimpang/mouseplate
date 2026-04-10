@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:mouseplate/controllers/app_controller.dart';
@@ -46,43 +47,50 @@ class DashboardPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _TripHeader(trip: trip),
+          const SizedBox(height: AppSpacing.sm),
+          _PreferencesCard(trip: trip),
           const SizedBox(height: AppSpacing.md),
-          _DashboardModeToggle(mode: controller.dashboardMode, onChanged: controller.setDashboardMode),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(child: _BigStatCard(title: 'Total', primary: trip.totalAllCredits.toString(), secondary: '$totalUsed used')),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: _BigStatCard(title: 'Remaining', primary: totalRemaining.toString(), secondary: 'keep the magic going')),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
+          if (trip.usesDiningPlan) ...[
+            _DashboardModeToggle(mode: controller.dashboardMode, onChanged: controller.setDashboardMode),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(child: _BigStatCard(title: 'Total', primary: trip.totalAllCredits.toString(), secondary: '$totalUsed used')),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: _BigStatCard(title: 'Remaining', primary: totalRemaining.toString(), secondary: 'keep the magic going')),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           _WorthItCard(trip: trip, usage: controller.usage, totalRemainingCredits: totalRemaining, onUpdateTrip: controller.saveTrip),
           const SizedBox(height: AppSpacing.md),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            child: controller.dashboardMode == DashboardMode.totals
-                ? _CountersCard(
-                    key: const ValueKey('totals'),
-                    trip: trip,
-                    usedQS: usedQS,
-                    usedTS: usedTS,
-                    usedSnack: usedSnack,
-                    remainingQS: remainingQS,
-                    remainingTS: remainingTS,
-                    remainingSnack: remainingSnack,
-                  )
-                : _DayByDayCard(
-                    key: const ValueKey('dayByDay'),
-                    trip: trip,
-                    usage: controller.usage,
-                    remainingQS: remainingQS,
-                    remainingTS: remainingTS,
-                    remainingSnack: remainingSnack,
-                  ),
-          ),
+          if (trip.usesDiningPlan)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: controller.dashboardMode == DashboardMode.totals
+                  ? _CountersCard(
+                      key: const ValueKey('totals'),
+                      trip: trip,
+                      usedQS: usedQS,
+                      usedTS: usedTS,
+                      usedSnack: usedSnack,
+                      remainingQS: remainingQS,
+                      remainingTS: remainingTS,
+                      remainingSnack: remainingSnack,
+                    )
+                  : _DayByDayCard(
+                      key: const ValueKey('dayByDay'),
+                      trip: trip,
+                      usage: controller.usage,
+                      remainingQS: remainingQS,
+                      remainingTS: remainingTS,
+                      remainingSnack: remainingSnack,
+                    ),
+            )
+          else
+            _CashModeCard(trip: trip),
           const SizedBox(height: AppSpacing.md),
           SizedBox(
             width: double.infinity,
@@ -124,17 +132,93 @@ class _WorthItCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    final planCost = trip.estimatedTotalCost;
     final oopEstimate = trip.estimatedOutOfPocketCost;
+    final loggedValue = usage.fold<double>(0.0, (sum, e) => sum + (e.value ?? 0.0));
+    final bg = cs.appCardBackgroundStrong;
+
+    // ── Cash mode variant ────────────────────────────────────────────────────
+    if (trip.isCashMode) {
+      final budgetRemaining = (oopEstimate - loggedValue).clamp(0.0, double.infinity);
+      final overBudget = loggedValue > oopEstimate && oopEstimate > 0;
+      final accent = overBudget ? cs.tertiary : cs.primary;
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AppRadius.xl), border: Border.all(color: cs.outline.withValues(alpha: 0.12))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: cs.outline.withValues(alpha: 0.10))),
+                  child: Icon(Icons.payments_rounded, color: cs.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Dining budget', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text('Paying cash - log meals to track your actual spend.', style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75), height: 1.2)),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openAssumptionsSheet(context),
+                  icon: Icon(Icons.tune_rounded, color: cs.primary),
+                  label: Text('Edit', style: text.labelLarge?.copyWith(color: cs.primary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (oopEstimate > 0) ...[
+              _WorthItRow(label: 'Estimated dining spend', value: _money(oopEstimate), valueStyle: text.titleMedium?.copyWith(color: cs.onSurface)),
+              _WorthItRow(label: 'Logged so far', value: _money(loggedValue), valueStyle: text.titleMedium?.copyWith(color: cs.onSurface)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (overBudget ? cs.tertiaryContainer : cs.primaryContainer).withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: accent.withValues(alpha: 0.18)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        overBudget ? 'Over estimated budget' : 'Remaining budget',
+                        style: text.bodyMedium?.copyWith(color: overBudget ? cs.onTertiaryContainer : cs.onPrimaryContainer),
+                      ),
+                    ),
+                    Text(
+                      overBudget ? '+${_money(loggedValue - oopEstimate)}' : _money(budgetRemaining),
+                      style: text.titleMedium?.copyWith(color: overBudget ? cs.onTertiaryContainer : cs.onPrimaryContainer, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Text('No estimate yet - tap Edit to set your assumed meal prices.', style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.70), height: 1.3)),
+            ],
+          ],
+        ),
+      );
+    }
+
+    // ── Plan mode variant ────────────────────────────────────────────────────
+    final planCost = trip.estimatedTotalCost;
     final delta = oopEstimate - planCost;
 
-    final loggedValue = usage.fold<double>(0.0, (sum, e) => sum + (e.value ?? 0.0));
     final remainingToBreakEven = (planCost - loggedValue).clamp(0.0, double.infinity);
     final perCreditNeeded = totalRemainingCredits <= 0 ? 0.0 : (remainingToBreakEven / totalRemainingCredits);
 
     final bool hasLoggedValues = usage.any((e) => (e.value ?? 0) > 0);
     final Color accent = delta >= 0 ? cs.primary : cs.tertiary;
-    final Color bg = cs.appCardBackgroundStrong;
 
     return Container(
       width: double.infinity,
@@ -163,7 +247,7 @@ class _WorthItCard extends StatelessWidget {
                     Text('Worth it?', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text(
-                      'Estimate plan vs cash — then track if you’re actually using it.',
+                      'Estimate plan vs cash - then track if you\'re actually using it.',
                       style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75), height: 1.2),
                     ),
                   ],
@@ -204,7 +288,7 @@ class _WorthItCard extends StatelessWidget {
           ),
           if (hasLoggedValues) ...[
             const SizedBox(height: 12),
-            Text('Based on what you’ve logged', style: text.labelLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.80))),
+            Text('Based on what you\'ve logged', style: text.labelLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.80))),
             const SizedBox(height: 8),
             _WorthItRow(label: 'Value logged so far', value: _money(loggedValue), valueStyle: text.titleMedium?.copyWith(color: cs.onSurface)),
             _WorthItRow(label: 'Still needed to break even', value: _money(remainingToBreakEven), valueStyle: text.titleMedium?.copyWith(color: cs.onSurface)),
@@ -349,30 +433,32 @@ class _TripHeader extends StatelessWidget {
       width: double.infinity,
       padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.65),
+        gradient: AppGradients.heroCard(cs.primary),
         borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.08)),
+        boxShadow: AppShadows.cardFloat,
       ),
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.80),
-              borderRadius: BorderRadius.circular(18),
+              color: cs.surface,
+              shape: BoxShape.circle,
               border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+              boxShadow: AppShadows.cardFloat,
             ),
-            child: Icon(Icons.castle_rounded, color: cs.onSurface),
+            child: Icon(Icons.castle_rounded, color: cs.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(trip.planType.label, style: text.titleMedium?.copyWith(color: cs.onPrimaryContainer)),
+                Text(trip.planType.label, style: text.titleMedium?.copyWith(color: cs.onSurface)),
                 const SizedBox(height: 4),
-                Text('${trip.adults} adult${trip.adults != 1 ? 's' : ''} • ${trip.children} kid${trip.children != 1 ? 's' : ''} • ${trip.nights} night${trip.nights != 1 ? 's' : ''}', style: text.bodyMedium?.copyWith(color: cs.onPrimaryContainer.withValues(alpha: 0.85))),
+                Text('${trip.adults} adult${trip.adults != 1 ? 's' : ''} • ${trip.children} kid${trip.children != 1 ? 's' : ''} • ${trip.nights} night${trip.nights != 1 ? 's' : ''}', style: text.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.85))),
               ],
             ),
           ),
@@ -393,9 +479,9 @@ class _DashboardModeToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.18)),
       ),
       child: SegmentedButton<DashboardMode>(
         segments: const [
@@ -419,6 +505,46 @@ class _DashboardModeToggle extends StatelessWidget {
   }
 }
 
+class _CashModeCard extends StatelessWidget {
+  final Trip trip;
+  const _CashModeCard({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: AppSpacing.paddingMd,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: cs.primaryContainer.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.payments_rounded, color: cs.onPrimaryContainer),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Cash mode', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(
+                    'No dining plan credits to track. Log your meals below to monitor spending.',
+                    style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75), height: 1.25),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BigStatCard extends StatelessWidget {
   final String title;
   final String primary;
@@ -429,19 +555,30 @@ class _BigStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: AppSpacing.paddingMd,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: text.labelLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.75))),
-            const SizedBox(height: 8),
-            Text(primary, style: text.headlineLarge?.copyWith(color: cs.onSurface)),
-            const SizedBox(height: 6),
-            Text(secondary, style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.70), height: 1.2)),
-          ],
-        ),
+    return Container(
+      padding: AppSpacing.paddingMd,
+      decoration: BoxDecoration(
+        gradient: AppGradients.heroCard(cs.primary),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
+        boxShadow: AppShadows.cardLift,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: text.labelLarge?.copyWith(color: cs.onSurface.withValues(alpha: 0.85))),
+          const SizedBox(height: 8),
+          Text(
+            primary,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 40,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(secondary, style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.90), height: 1.2)),
+        ],
       ),
     );
   }
@@ -544,7 +681,7 @@ class _DayByDayCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               remainingDays == 0
-                  ? 'Your trip is over — this view is read-only.'
+                  ? 'Your trip is over - this view is read-only.'
                   : 'Suggested pace to finish by checkout: '
                       '${_fmt1(qsPerDay)} QS/day'
                       '${trip.totalTableServiceCredits > 0 ? ' • ${_fmt1(tsPerDay)} TS/day' : ''}'
@@ -615,7 +752,7 @@ class _DayByDayCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: isFuture ? 0.25 : 0.45)),
+                      Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: isFuture ? 0.42 : 0.45)),
                     ],
                   ),
                 ),
@@ -702,11 +839,23 @@ class _CounterRow extends StatelessWidget {
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 10,
-              backgroundColor: cs.surface,
-              color: cs.primary,
+            child: SizedBox(
+              height: 8,
+              child: Stack(
+                children: [
+                  Container(color: cs.surfaceContainerHighest),
+                  FractionallySizedBox(
+                    widthFactor: pct.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [cs.primary, cs.secondary],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -754,12 +903,12 @@ class _ExpiryCountdown extends StatelessWidget {
       icon = Icons.schedule_rounded;
     } else if (soonExpiring) {
       final hours = diff.inHours;
-      countdownText = '${diff.inDays}d ${hours % 24}h left — checkout $checkoutPretty';
+      countdownText = '${diff.inDays}d ${hours % 24}h left - checkout $checkoutPretty';
       bgColor = cs.tertiaryContainer;
       fgColor = cs.onTertiaryContainer;
       icon = Icons.hourglass_bottom_rounded;
     } else {
-      countdownText = '${diff.inDays} days left — checkout $checkoutPretty';
+      countdownText = '${diff.inDays} days left - checkout $checkoutPretty';
       bgColor = cs.primaryContainer.withValues(alpha: 0.50);
       fgColor = cs.onPrimaryContainer;
       icon = Icons.event_rounded;
@@ -818,18 +967,18 @@ class _LowCreditsReminder extends StatelessWidget {
     if (daysLeft > 0 && daysLeft <= 2) {
       final totalRemaining = remainingQS + remainingTS + remainingSnack;
       if (totalRemaining > 0) {
-        hints.add('Don\'t forget — $totalRemaining credit${totalRemaining == 1 ? '' : 's'} left to use!');
+        hints.add('Don\'t forget - $totalRemaining credit${totalRemaining == 1 ? '' : 's'} left to use!');
       }
     }
 
     // Check for snacks piling up
     if (remainingSnack >= 4 && daysLeft <= 3) {
-      hints.add('$remainingSnack snack credits left — time for some treats!');
+      hints.add('$remainingSnack snack credits left - time for some treats!');
     }
 
     // Check for quick-service credits piling up
     if (remainingQS >= trip.totalPartySize * 2 && daysLeft <= 2) {
-      hints.add('Plenty of QS meals left — consider a big family meal.');
+      hints.add('Plenty of QS meals left - consider a big family meal.');
     }
 
     if (hints.isEmpty) return const SizedBox.shrink();
@@ -877,7 +1026,7 @@ class _RecentHistory extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.xl),
           border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
         ),
-        child: Text('No logs yet — tap “Log a Meal / Snack” to start.', style: text.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.80))),
+        child: Text('No logs yet - tap "Log a Meal / Snack" to start.', style: text.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.80))),
       );
     }
 
@@ -935,4 +1084,105 @@ class _RecentHistory extends StatelessWidget {
   }
 
   String _month(int m) => const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+}
+
+class _PreferencesCard extends StatelessWidget {
+  final Trip trip;
+  const _PreferencesCard({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    if (trip.partyMembers.isNotEmpty) {
+      // Per-person view: one chip per party member
+      final memberChips = trip.partyMembers.map((m) => (
+        icon: m.isAdult ? Icons.person_rounded : Icons.child_care_rounded,
+        label: '${m.name} \u00b7 ${m.eatingStyle.label}',
+      )).toList();
+      if (trip.resortRefillableMugs) {
+        memberChips.add((icon: Icons.coffee_rounded, label: 'Resort mugs'));
+      }
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: memberChips.map((c) => _PrefChip(icon: c.icon, label: c.label, cs: cs, text: text)).toList(),
+      );
+    }
+
+    // Legacy fallback for trips without per-person data
+    final chips = <({IconData icon, String label})>[];
+
+    chips.add((
+      icon: switch (trip.diningStyle) {
+        DiningStyle.budget => Icons.savings_rounded,
+        DiningStyle.average => Icons.restaurant_menu_rounded,
+        DiningStyle.splurge => Icons.star_rounded,
+      },
+      label: switch (trip.diningStyle) {
+        DiningStyle.budget => 'Budget dining',
+        DiningStyle.average => 'Average dining',
+        DiningStyle.splurge => 'Splurge dining',
+      },
+    ));
+
+    chips.add((
+      icon: switch (trip.beveragePreference) {
+        BeveragePreference.waterOnly => Icons.water_drop_rounded,
+        BeveragePreference.fountainOrNonAlcoholic => Icons.local_drink_rounded,
+        BeveragePreference.includesAlcohol => Icons.wine_bar_rounded,
+      },
+      label: switch (trip.beveragePreference) {
+        BeveragePreference.waterOnly => 'Water only',
+        BeveragePreference.fountainOrNonAlcoholic => 'Fountain drinks',
+        BeveragePreference.includesAlcohol => 'Includes alcohol',
+      },
+    ));
+
+    if (trip.snacksPerPersonPerDay > 0) {
+      chips.add((icon: Icons.icecream_rounded, label: '${trip.snacksPerPersonPerDay} snack${trip.snacksPerPersonPerDay == 1 ? '' : 's'}/person/day'));
+    }
+    if (trip.dessertAtTableService) {
+      chips.add((icon: Icons.cake_rounded, label: 'Dessert at TS'));
+    }
+    if (trip.resortRefillableMugs) {
+      chips.add((icon: Icons.coffee_rounded, label: 'Resort mugs'));
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: chips.map((c) => _PrefChip(icon: c.icon, label: c.label, cs: cs, text: text)).toList(),
+    );
+  }
+}
+
+class _PrefChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme cs;
+  final TextTheme text;
+
+  const _PrefChip({required this.icon, required this.label, required this.cs, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.appCardBackground,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: cs.onSurface.withValues(alpha: 0.70)),
+          const SizedBox(width: 6),
+          Text(label, style: text.labelSmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.80))),
+        ],
+      ),
+    );
+  }
 }

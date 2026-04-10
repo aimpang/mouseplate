@@ -21,6 +21,7 @@ class PlannedMeal {
   final UsageType type;
   final String restaurant;
   final double? estimatedValue;
+  final int credits;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,6 +34,7 @@ class PlannedMeal {
     required this.createdAt,
     required this.updatedAt,
     this.estimatedValue,
+    this.credits = 1,
   });
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +44,7 @@ class PlannedMeal {
     'type': type.name,
     'restaurant': restaurant,
     'estimatedValue': estimatedValue,
+    'credits': credits,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -59,6 +62,7 @@ class PlannedMeal {
       type: type,
       restaurant: (json['restaurant'] ?? '').toString(),
       estimatedValue: (json['estimatedValue'] as num?)?.toDouble(),
+      credits: (json['credits'] as num?)?.toInt() ?? 1,
       createdAt: parseDate('createdAt'),
       updatedAt: parseDate('updatedAt'),
     );
@@ -71,6 +75,7 @@ class PlannedMeal {
     UsageType? type,
     String? restaurant,
     double? estimatedValue,
+    int? credits,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -81,6 +86,7 @@ class PlannedMeal {
         type: type ?? this.type,
         restaurant: restaurant ?? this.restaurant,
         estimatedValue: estimatedValue ?? this.estimatedValue,
+        credits: credits ?? this.credits,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );

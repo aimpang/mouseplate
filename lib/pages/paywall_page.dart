@@ -1,13 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:mouseplate/controllers/app_controller.dart';
+import 'package:mouseplate/services/iap_service.dart';
 import 'package:mouseplate/theme.dart';
 import 'package:mouseplate/widgets/app_shell.dart';
 
-class PaywallPage extends StatelessWidget {
+class PaywallPage extends StatefulWidget {
   const PaywallPage({super.key});
+
+  @override
+  State<PaywallPage> createState() => _PaywallPageState();
+}
+
+class _PaywallPageState extends State<PaywallPage> {
+  late final IapService _iap;
+
+  @override
+  void initState() {
+    super.initState();
+    _iap = IapService();
+    _iap.onPremiumUnlocked = () {
+      if (!mounted) return;
+      context.read<AppController>().setPremiumUnlocked(true);
+    };
+    _iap.init();
+    _iap.addListener(_onIapChanged);
+  }
+
+  void _onIapChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final msg = _iap.errorMessage;
+    if (msg != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  @override
+  void dispose() {
+    _iap.removeListener(_onIapChanged);
+    _iap.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +53,7 @@ class PaywallPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Premium'),
-        backgroundColor: cs.surface.withValues(alpha: 0.90),
+        backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -78,27 +113,28 @@ class PaywallPage extends StatelessWidget {
                     ],
                   ),
                 )
-              else
+              else ...[
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () async {
-                      // NOTE: Prototype unlock (no real payments / storekit/billing).
-                      await context.read<AppController>().setPremiumUnlocked(true);
-                      if (context.mounted) context.pop();
-                    },
+                    onPressed: _iap.loading || !_iap.available ? null : _iap.buyPremium,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
                     ),
-                    child: Text('Unlock for \$4.99', style: text.titleMedium?.copyWith(color: cs.onPrimary)),
+                    child: _iap.loading
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary))
+                        : Text('Unlock for \$4.99', style: text.titleMedium?.copyWith(color: cs.onPrimary)),
                   ),
                 ),
-              const SizedBox(height: 10),
-              Text(
-                'This is a lightweight prototype: the unlock button simulates a purchase using local storage.',
-                style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.65), height: 1.35),
-              ),
+                const SizedBox(height: 10),
+                Center(
+                  child: TextButton(
+                    onPressed: _iap.loading ? null : _iap.restorePurchases,
+                    child: Text('Restore purchase', style: text.bodyMedium?.copyWith(color: cs.primary)),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

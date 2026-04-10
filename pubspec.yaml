@@ -8,6 +8,9 @@ environment:
   sdk: ^3.6.0
 dependencies:
   shared_preferences: ^2.0.0
+  in_app_purchase: ^3.2.0
+  pdf: ^3.11.0
+  printing: ^5.13.0
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8

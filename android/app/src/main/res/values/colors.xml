@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches app scaffold / lightBackground (#FFFBF8) so the Android window never shows default white behind Flutter. -->
+    <color name="app_window_background">#FFFBF8</color>
+</resources>

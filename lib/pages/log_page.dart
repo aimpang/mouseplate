@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:mouseplate/controllers/app_controller.dart';
@@ -8,6 +7,16 @@ import 'package:mouseplate/models/trip.dart';
 import 'package:mouseplate/models/usage_entry.dart';
 import 'package:mouseplate/theme.dart';
 import 'package:mouseplate/widgets/app_shell.dart';
+import 'package:mouseplate/widgets/wdw_restaurant_picker.dart';
+
+double? _parseMoneyOrNull(String raw) {
+  final s = raw.trim();
+  if (s.isEmpty) return null;
+  final normalized = s.replaceAll(RegExp(r'[^0-9.\-]'), '');
+  final v = double.tryParse(normalized);
+  if (v == null || !v.isFinite || v <= 0) return null;
+  return v;
+}
 
 class LogPage extends StatelessWidget {
   const LogPage({super.key});
@@ -15,10 +24,7 @@ class LogPage extends StatelessWidget {
   Future<void> _openLogSheet(BuildContext context, UsageType type) async {
     final controller = context.read<AppController>();
     final trip = controller.trip;
-    final noteController = TextEditingController();
-    final valueController = TextEditingController();
     final cs = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
 
     final bool cashMode = trip?.usesDiningPlan == false;
 
@@ -29,124 +35,20 @@ class LogPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
       backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
-      builder: (ctx) {
-        final bool needsOverdraftConfirm = !cashMode && remaining <= 0;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            top: AppSpacing.md,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.md,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                    child: Icon(_iconFor(type), color: cs.onPrimaryContainer),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Log: ${type.label}', style: text.titleLarge)),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (!cashMode)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: needsOverdraftConfirm ? cs.tertiaryContainer.withValues(alpha: 0.70) : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(needsOverdraftConfirm ? Icons.info_outline_rounded : Icons.confirmation_number_rounded, size: 18, color: needsOverdraftConfirm ? cs.onTertiaryContainer : cs.onSurface),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          needsOverdraftConfirm
-                              ? 'You’re out of ${type.shortLabel} credits (used ${total - remaining} of $total). You can still log for accuracy.'
-                              : '$remaining ${type.shortLabel} credits remaining',
-                          style: text.bodyMedium?.copyWith(color: needsOverdraftConfirm ? cs.onTertiaryContainer : cs.onSurface),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (!cashMode) const SizedBox(height: AppSpacing.md),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: noteController,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Optional note',
-                  hintText: 'e.g., “Cosmic Ray’s”',
-                  prefixIcon: Icon(Icons.edit_note_rounded),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: valueController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Optional value (what you would have paid)',
-                  hintText: 'e.g., 27.99',
-                  prefixIcon: Icon(Icons.attach_money_rounded),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    final value = _parseMoneyOrNull(valueController.text);
-                    final outcome = await controller.logUsage(type: type, note: noteController.text, value: value, allowOverdraft: needsOverdraftConfirm);
-                    if (!ctx.mounted) return;
-                    if (outcome == LogUsageOutcome.success) {
-                      ctx.pop();
-                      return;
-                    }
-
-                    final msg = switch (outcome) {
-                      LogUsageOutcome.noTrip => 'Please set up your trip first.',
-                      LogUsageOutcome.expired => 'This trip has expired — logging is disabled.',
-                      LogUsageOutcome.notInPlan => 'That credit type isn’t included in your plan.',
-                      LogUsageOutcome.noRemaining => 'No remaining credits. (You can still log by confirming.)',
-                      LogUsageOutcome.storageError => 'Couldn’t save your log. Try again.',
-                      LogUsageOutcome.success => '',
-                    };
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                  },
-                  icon: Icon(Icons.check_rounded, color: cs.onPrimary),
-                  label: Text(needsOverdraftConfirm ? 'Log anyway' : 'Add to history', style: text.titleMedium?.copyWith(color: cs.onPrimary)),
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => _QuickLogSheet(
+        type: type,
+        cashMode: cashMode,
+        remaining: remaining,
+        total: total,
+        appController: controller,
+        snackBarContext: context,
+      ),
     );
-  }
-
-  double? _parseMoneyOrNull(String raw) {
-    final s = raw.trim();
-    if (s.isEmpty) return null;
-    final normalized = s.replaceAll(RegExp(r'[^0-9.\-]'), '');
-    final v = double.tryParse(normalized);
-    if (v == null || !v.isFinite || v <= 0) return null;
-    return v;
   }
 
   @override
@@ -173,6 +75,183 @@ class LogPage extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _HistoryList(entries: controller.usage),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickLogSheet extends StatefulWidget {
+  final UsageType type;
+  final bool cashMode;
+  final int remaining;
+  final int total;
+  final AppController appController;
+  final BuildContext snackBarContext;
+
+  const _QuickLogSheet({
+    required this.type,
+    required this.cashMode,
+    required this.remaining,
+    required this.total,
+    required this.appController,
+    required this.snackBarContext,
+  });
+
+  @override
+  State<_QuickLogSheet> createState() => _QuickLogSheetState();
+}
+
+class _QuickLogSheetState extends State<_QuickLogSheet> {
+  late final TextEditingController _noteController;
+  late final TextEditingController _valueController;
+
+  @override
+  void initState() {
+    super.initState();
+    _noteController = TextEditingController();
+    _valueController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _valueController.dispose();
+    super.dispose();
+  }
+
+  bool get _isMealLog => widget.type == UsageType.quickService || widget.type == UsageType.tableService;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final needsOverdraftConfirm = !widget.cashMode && widget.remaining <= 0;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: AppSpacing.md,
+        right: AppSpacing.md,
+        top: AppSpacing.md,
+        bottom: bottomInset + AppSpacing.md,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(16)),
+                  child: Icon(_iconFor(widget.type), color: cs.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Log: ${widget.type.label}', style: text.titleLarge)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (!widget.cashMode)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: needsOverdraftConfirm ? cs.tertiaryContainer.withValues(alpha: 0.70) : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(needsOverdraftConfirm ? Icons.info_outline_rounded : Icons.confirmation_number_rounded, size: 18, color: needsOverdraftConfirm ? cs.onTertiaryContainer : cs.onSurface),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        needsOverdraftConfirm
+                            ? 'You’re out of ${widget.type.shortLabel} credits (used ${widget.total - widget.remaining} of ${widget.total}). You can still log for accuracy.'
+                            : '${widget.remaining} ${widget.type.shortLabel} credits remaining',
+                        style: text.bodyMedium?.copyWith(color: needsOverdraftConfirm ? cs.onTertiaryContainer : cs.onSurface),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (!widget.cashMode) const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
+            if (_isMealLog) ...[
+              WdwRestaurantPicker(
+                type: widget.type,
+                controller: _noteController,
+                showFooterHint: false,
+                onChanged: () => setState(() {}),
+                onCatalogSelected: (o) {
+                  _valueController.text = o.avgPerAdult.toStringAsFixed(2);
+                },
+              ),
+            ] else ...[
+              TextField(
+                controller: _noteController,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Optional note',
+                  hintText: 'e.g., Mickey bar',
+                  prefixIcon: Icon(Icons.icecream_rounded),
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _valueController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Optional value (what you would have paid)',
+                hintText: 'e.g., 27.99',
+                prefixIcon: Icon(Icons.attach_money_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final value = _parseMoneyOrNull(_valueController.text);
+                  final outcome = await widget.appController.logUsage(
+                    type: widget.type,
+                    note: _noteController.text,
+                    value: value,
+                    allowOverdraft: needsOverdraftConfirm,
+                  );
+                  if (!context.mounted) return;
+                  if (outcome == LogUsageOutcome.success) {
+                    Navigator.of(context).pop();
+                    return;
+                  }
+
+                  final msg = switch (outcome) {
+                    LogUsageOutcome.noTrip => 'Please set up your trip first.',
+                    LogUsageOutcome.expired => 'This trip has expired — logging is disabled.',
+                    LogUsageOutcome.notInPlan => 'That credit type isn’t included in your plan.',
+                    LogUsageOutcome.noRemaining => 'No remaining credits. (You can still log by confirming.)',
+                    LogUsageOutcome.storageError => 'Couldn’t save your log. Try again.',
+                    LogUsageOutcome.success => '',
+                  };
+                  if (!widget.snackBarContext.mounted) return;
+                  ScaffoldMessenger.of(widget.snackBarContext).showSnackBar(SnackBar(content: Text(msg)));
+                },
+                icon: Icon(Icons.check_rounded, color: cs.onPrimary),
+                label: Text(
+                  needsOverdraftConfirm ? 'Log anyway' : 'Add to history',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.titleMedium?.copyWith(color: cs.onPrimary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     );
   }
@@ -285,9 +364,19 @@ class _PlannedMealRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${meal.slot.label} • ${meal.type.shortLabel}', style: text.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+              Text(
+                '${meal.slot.label} • ${meal.type.shortLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 2),
-              Text(meal.restaurant, style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75))),
+              Text(
+                meal.restaurant,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.75)),
+              ),
             ],
           ),
         ),
@@ -342,40 +431,29 @@ class _QuickButtons extends StatelessWidget {
             ),
           ),
         if (controller.creditsExpired) const SizedBox(height: AppSpacing.sm),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _ActionTile(
-                  icon: Icons.fastfood_rounded,
-                  title: 'Quick-Service',
-                  subtitle: '1 meal credit',
-                  badgeText: _badgeText(controller, UsageType.quickService),
-                  enabled: !controller.creditsExpired,
-                  onPressed: () => onTap(UsageType.quickService),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _ActionTile(
-                  icon: Icons.icecream_rounded,
-                  title: 'Snack',
-                  subtitle: '1 snack credit',
-                  badgeText: _badgeText(controller, UsageType.snack),
-                  enabled: !controller.creditsExpired,
-                  onPressed: () => onTap(UsageType.snack),
-                ),
-              ),
-            ],
-          ),
+        _ActionTile(
+          icon: Icons.fastfood_rounded,
+          title: 'Quick Service',
+          subtitle: '1 meal',
+          badgeText: _badgeText(controller, UsageType.quickService),
+          enabled: !controller.creditsExpired,
+          onPressed: () => onTap(UsageType.quickService),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _ActionTile(
+          icon: Icons.icecream_rounded,
+          title: 'Snack',
+          subtitle: '1 snack',
+          badgeText: _badgeText(controller, UsageType.snack),
+          enabled: !controller.creditsExpired,
+          onPressed: () => onTap(UsageType.snack),
         ),
         if (trip.totalTableServiceCredits > 0) ...[
           const SizedBox(height: AppSpacing.md),
           _ActionTile(
             icon: Icons.restaurant_rounded,
-            title: 'Table-Service',
-            subtitle: '1 meal credit',
+            title: 'Table Service',
+            subtitle: '1 meal',
             badgeText: _badgeText(controller, UsageType.tableService),
             enabled: !controller.creditsExpired,
             onPressed: () => onTap(UsageType.tableService),
@@ -421,48 +499,50 @@ class _ActionTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.xl),
           border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
         ),
-        child: Stack(
+        child: Row(
           children: [
-            // Badge in top-right corner
-            if (badgeText != null)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
-                  ),
-                  child: Text(badgeText!, style: text.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            // Main content
-            Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: cs.outline.withValues(alpha: 0.10))),
-                  child: Icon(icon, color: fg),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(title, style: text.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text(subtitle, style: text.bodySmall?.copyWith(color: fg.withValues(alpha: 0.75))),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, color: fg.withValues(alpha: 0.55)),
-              ],
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: cs.outline.withValues(alpha: 0.10))),
+              child: Icon(icon, color: fg),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodySmall?.copyWith(color: fg.withValues(alpha: 0.75)),
+                  ),
+                ],
+              ),
+            ),
+            if (badgeText != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
+                ),
+                child: Text(badgeText!, style: text.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w600)),
+              ),
+            ],
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: fg.withValues(alpha: 0.55)),
           ],
         ),
       ),

@@ -12,14 +12,12 @@ class AppShell extends StatelessWidget {
   int _indexForLocation(String location) {
     if (location.startsWith(AppRoutes.appHome)) return 0;
     if (location.startsWith(AppRoutes.appLog)) return 1;
-    if (location.startsWith(AppRoutes.appTips)) return 2;
-    return 3;
+    return 2;
   }
 
   String _locationForIndex(int index) => switch (index) {
     0 => AppRoutes.appHome,
     1 => AppRoutes.appLog,
-    2 => AppRoutes.appTips,
     _ => AppRoutes.appSettings,
   };
 
@@ -27,30 +25,51 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = GoRouterState.of(context).uri.toString();
     final idx = _indexForLocation(loc);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppLayout.maxContentWidth),
-            child: child,
+      backgroundColor: cs.surface,
+      body: DecoratedBox(
+        decoration: BoxDecoration(gradient: AppGradients.pageBackgroundFor(cs)),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppLayout.maxContentWidth),
+              child: child,
+            ),
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 72,
-        selectedIndex: idx,
-        onDestinationSelected: (index) {
-          final target = _locationForIndex(index);
-          if (target == loc) return;
-          context.go(target);
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.add_circle_outline_rounded), label: 'Log'),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_rounded), label: 'Tips'),
-          NavigationDestination(icon: Icon(Icons.settings_rounded), label: 'Settings'),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: cs.outline.withValues(alpha: 0.10))),
+        ),
+        child: NavigationBar(
+          height: 68,
+          selectedIndex: idx,
+          onDestinationSelected: (index) {
+            final target = _locationForIndex(index);
+            if (target == loc) return;
+            context.go(target);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.add_circle_outline_rounded),
+              selectedIcon: Icon(Icons.add_circle_rounded),
+              label: 'Log',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings_rounded),
+              label: 'Settings',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -68,10 +87,14 @@ class AppBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppLayout.maxContentWidth),
-        child: Padding(padding: padding, child: child),
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: AppGradients.pageBackgroundFor(cs)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppLayout.maxContentWidth),
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -94,8 +117,25 @@ class AppPageScaffold extends StatelessWidget {
           pinned: true,
           title: Text(title),
           actions: actions,
-          backgroundColor: cs.surface.withValues(alpha: 0.90),
+          // Opaque surface — semi-transparent + M3 scroll tint reads as a white veil over content.
+          backgroundColor: cs.surface,
           surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    cs.outline.withValues(alpha: 0.0),
+                    cs.outline.withValues(alpha: 0.10),
+                    cs.outline.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
         SliverPadding(
           padding: AppLayout.pagePadding,

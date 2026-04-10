@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd C:\\\\\\\\Applications\\\\\\\\MousePlate\\\\\\\\mouseplate)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter --version)",
+      "Bash(timeout 120 flutter build apk --debug)",
+      "WebFetch(domain:github.com)",
+      "Bash(multica version:*)",
+      "Bash(brew tap:*)",
+      "Bash(brew install:*)",
+      "Bash(curl -sL \"https://github.com/multica-ai/multica/releases/download/v0.1.20/multica_windows_amd64.exe\" -o /tmp/multica.exe)",
+      "Read(//tmp/**)",
+      "Bash(mv /tmp/multica.exe /usr/local/bin/multica.exe)",
+      "Bash(/usr/local/bin/multica.exe version:*)",
+      "Bash(mkdir -p /usr/local/bin)",
+      "Bash(cp /tmp/multica.exe /usr/local/bin/multica)",
+      "Bash(chmod +x /usr/local/bin/multica)",
+      "Bash(/usr/local/bin/multica version:*)",
+      "Bash(cp /tmp/multica.exe ~/.local/bin/)",
+      "Bash(~/.local/bin/multica.exe version:*)",
+      "Bash(curl -s https://api.github.com/repos/multica-ai/multica/releases/tags/v0.1.20)",
+      "Bash(curl -s https://api.github.com/repos/multica-ai/multica/releases/latest)",
+      "Bash(docker --version)",
+      "Bash(dockerd)",
+      "Bash(docker search multica:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(winpty docker:*)",
+      "Bash(ls -la /tmp/multica/docker-compose*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker rm:*)"
+    ]
+  }
+}

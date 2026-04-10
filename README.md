@@ -1,130 +1,247 @@
-# Mouseplate
+# Mouseplate — Disney Dining Plan Calculator & Trip Logger
 
-Mouseplate is a Flutter app that helps guests estimate whether a Disney-style dining plan is “worth it” for their specific trip, while also providing a simple way to plan meals and log dining usage during the vacation.
+Mouseplate is a Flutter app that helps Disney World guests determine whether a dining plan is "worth it" for their trip, then plan and log meals during their vacation. It compares the cost of dining plans (Quick-Service, Standard) against estimated out-of-pocket spending, and tracks credit usage in real time.
 
-This repo currently runs **without any backend** (all data is stored locally on-device). If/when you want Firebase or Supabase, use the **Firebase** / **Supabase** panel in Dreamflow to set it up.
-
----
-
-## Tech stack
-
-- **Flutter (Material 3)** + **Dart**
-- **Navigation:** `go_router` (use `context.go / context.push / context.pop`)
-- **State management:** `provider` + `ChangeNotifier` (`AppController`)
-- **Persistence (Phase 1):** `shared_preferences` via `LocalStorageService` (local-first, on-device)
-- **Platforms:** Android / iOS / Web (Dreamflow runs with CanvasKit)
+**Status:** Phase 1 complete with full local-first persistence. No backend required.
 
 ---
 
-## Architecture (Phase 1: local-first)
+## Features
 
-The app is intentionally structured so Phase 1 stays simple (no backend), while Phase 2+ can swap persistence/auth without rewriting UI.
+### 🎯 Trip Planning
 
-- **UI layer**: `lib/pages/*` and `lib/widgets/*`
-  - Pages own layout and user interactions.
-  - Reusable UI pieces live under `widgets/`.
-- **Controller layer**: `lib/controllers/app_controller.dart`
-  - Single source of truth for the current trip, usage log, premium flag, and derived totals.
-  - Exposes commands (save trip, log usage, consume planned meal, etc.) and notifies listeners.
-- **Domain models**: `lib/models/*`
-  - `Trip`, `PlannedMeal`, `UsageEntry`, `AppUser`
-  - JSON serialization (`toJson/fromJson`) + immutable updates (`copyWith`).
-- **Services (data access)**: `lib/services/local_storage_service.dart`
-  - Reads/writes models to local storage.
-  - This is the main seam for future Firebase/Supabase integration.
-- **Routing**: `lib/nav.dart` + `go_router`
-  - Centralized route table (avoid `Navigator.push`).
+- **6-step onboarding wizard** to gather trip details:
+  1. Vacation dates, party size (adults/children), and discounts (AP/DVC)
+  2. Per-person dining profiles (eating style, snacks, dessert preferences, alcohol)
+  3. Parks you're visiting (filters signature dining options)
+  4. Signature Dining meal selection (2-credit restaurants)
+  5. Dining plan vs. cash-out-of-pocket recommendation
+  6. Review & confirm summary
 
-## Current feature list (Phase 1)
+- **Dining plan options:**
+  - **Quick-Service Plan:** 2 QS meals + 1 snack per person per day
+  - **Disney Dining Plan (Standard):** 1 QS + 1 Table-Service + 1 snack per person per day
+  - **Pay Cash (no plan):** Log meals without credit constraints
 
-### Trip setup
-- **Pre-onboarding choice screen**: choose how to set up a trip
-  - Manual setup (Free)
-  - AI Concierge (Premium) — visible but paywalled / placeholder for Phase 2
-- **5-step Trip Onboarder** (manual wizard) modeled after the referenced calculator’s step structure:
-  1. Describe your vacation plans (party + dates + AP/DVC)
-  2. Customize dining experience (habits/preferences)
-  3. Restaurants / meals per day planning
-  4. Cost & plan comparison inputs
-  5. Review & confirm summary
+- **Signature Dining tracking:** Pre-select restaurants and dates; they appear in the logging interface
 
-### Planning + tracking
-- **Dashboard**: quick snapshot of trip and estimated value (depending on entered data)
-- **Food logger**: create and manage planned meals and record usage entries
-- **Credit / usage tracking**: track how many meals/snacks are planned vs used
-- **Tips page** and **Settings** (basic)
+### 📊 Dashboard
 
-### Data & architecture
-- Local-first persistence via a local storage service
-- Models for Trip, PlannedMeal, UsageEntry, and AppUser
+- **Real-time credit summary:** See total, used, and remaining credits per category (QS / TS / Snacks)
+- **Worth It? analysis:** Compare plan cost vs. estimated out-of-pocket value
+- **Per-person breakdown:** See dining style and preferences for each party member
+- **Day-by-day pacing:** Get tips on meal consumption rate relative to trip length
+
+### 📝 Meal Logging
+
+- **Planned meals:** Marked meals appear as a card on the Log page; tap "Eat" to move them to history
+- **Quick-log buttons:** Fast entry for QS, Table-Service, or Snacks
+- **Restaurant picker:** Autofill meal estimates when you log from the restaurant catalog
+- **Cash mode:** In "pay cash" mode, log meals freely (no credit limits)
+- **Optional details:** Record restaurant name, estimated value, and custom notes
+
+### 🧾 PDF Export
+
+- Generate and share a full trip summary including:
+  - Trip snapshot (dates, party, plan type, discounts)
+  - Party member profiles (name, eating style, snacks/day, dessert & alcohol preferences)
+  - Credit totals (QS / TS / Snacks with used/remaining)
+  - "Worth It?" breakdown (plan cost vs. cash value vs. savings)
+  - Planned meals (by date and slot)
+  - Full usage history (timestamps, values, notes)
 
 ---
 
-## Example complete user flow (family of 4)
+## Architecture
 
-Below is an end-to-end flow that a typical family might take.
+### Tech Stack
+
+- **Framework:** Flutter + Dart (Material 3 design)
+- **Navigation:** `go_router` (centralized routing)
+- **State Management:** Provider + `ChangeNotifier` (AppController)
+- **Storage:** `shared_preferences` via LocalStorageService (local-first)
+- **Platforms:** Android / iOS / Web
+- **PDF Export:** `pdf` + `printing` packages
+
+### Codebase Structure
+
+```
+lib/
+├── pages/              # Full-screen UI (onboarding, dashboard, log, settings)
+├── widgets/            # Reusable components (app shell, restaurant picker)
+├── controllers/        # AppController (single source of truth)
+├── models/             # Trip, UsageEntry, PlannedMeal, PartyMember
+├── services/           # LocalStorageService (data persistence)
+├── data/               # WdwRestaurantCatalog (hardcoded restaurant data)
+├── theme.dart          # Material 3 colors + typography
+└── nav.dart            # GoRouter configuration
+```
+
+### Key Models
+
+- **Trip:** Immutable; stores party size, dates, dining plan choice, party members, planned meals, assumptions
+- **PartyMember:** Individual guest profile (name, eating style, snacks/day, dessert & alcohol preferences)
+- **PlannedMeal:** Scheduled restaurant visit (date, type, credits, estimated value)
+- **UsageEntry:** Logged meal (type, timestamp, restaurant/note, value, credits)
+
+### Single Source of Truth
+
+`AppController` in `lib/controllers/app_controller.dart` owns:
+- Current trip
+- Usage log
+- Computed totals (used/remaining credits, worth-it analysis)
+- Premium flag & onboarding status
+
+All UI listens via `Provider.watch<AppController>()`.
+
+---
+
+## Complete User Flow Example
 
 ### Scenario
-- Party: **2 adults + 2 kids**
-- Dates: **Apr 4 → Apr 10** (6 nights / 7 days)
-- Staying on-site: Yes
-- Annual Passholder: No
-- DVC: No
-- Goal: figure out whether a dining plan makes sense, then build a meal plan and log what they actually used.
+**Family of 2 adults + 2 kids visiting Apr 4–10 (6 nights)**
+- No AP/DVC discounts
+- Moderate eaters
+- Interested in signature dining
+- Want to know: is the Standard plan worth it?
 
-### Flow
-1. **Welcome** → tap **“Set up a trip”**
+### Step-by-Step
+
+1. **Launch app** → Welcome page
+   - No existing trip data
+   - Tap **"Set up a trip"**
+
 2. **Trip Setup Method** (`/setup`)
-   - Choose **Manual setup (Free)**
-   - (AI Concierge is visible but locked behind Premium)
-3. **Trip Onboarder** (`/setup/manual`)
-   - **Step 1: Vacation plans**
-     - Enter party (2 adults, 2 kids)
-     - Select dates (Apr 4–10)
-     - Confirm AP/DVC = off
-   - **Step 2: Dining preferences**
-     - Choose preferences like snacks/day, beverage assumptions, dessert, refillable mug, etc.
-   - **Step 3: Plan meals**
-     - Pick how many breakfasts/lunches/dinners they expect across the trip
-     - Add any “must-do” meals (character breakfast, signature dinner, etc.) as planned meals
-   - **Step 4: Costs & comparisons**
-     - Enter/confirm plan pricing assumptions (as provided by you)
-     - Add any discounts that apply (none in this scenario)
-   - **Step 5: Review & confirm**
-     - Review the summary
-     - Confirm to create the trip and initialize the meal logger plan
-4. **Dashboard** (`/dashboard`)
-   - See a high-level “worth it” snapshot and trip overview
-5. **Log meals during the trip** (`/log`)
-   - Each day, open the logger and mark meals as used (or add ad-hoc meals)
-   - The app updates usage totals as they go
-6. **Post-trip**
-   - Review what was planned vs what was actually used
-   - Adjust assumptions for next trip (repeat-customer workflow)
+   - Choose **"Manual setup (Free)"**
+   - (AI Concierge option is visible but locked)
+
+3. **Step 1: Vacation Plans** (`/setup/manual` step 0)
+   - Adults: `2`
+   - Children: `2`
+   - Check-in: `Apr 4`
+   - Check-out: `Apr 10` (calculates 6 nights)
+   - Discounts: Off
+   - Tap **Continue**
+
+4. **Step 2: Meet Your Party** (step 1)
+   - App auto-creates 2 adult + 2 child profiles
+   - Edit each person:
+     - Adult 1: "Mom" → Park Explorer (1.0x) → 1 snack/day, dessert at TS, enjoys alcohol
+     - Adult 2: "Dad" → Park Explorer (1.0x) → 1 snack/day, no dessert, no alcohol
+     - Child 1: "Emma" → Little Nibbler (0.8x) → 0 snacks/day
+     - Child 2: "Liam" → Park Explorer (1.0x) → 1 snack/day, dessert at TS
+   - Tap **Continue**
+
+5. **Step 3: Parks You're Visiting** (step 2)
+   - All 4 parks pre-selected
+   - Deselect one if desired
+   - Tap **Continue**
+
+6. **Step 4: Signature Dining** (step 3)
+   - App shows signature restaurants by park
+   - Select 2–3 meals (e.g., "Be Our Guest" for Mom & Dad on day 2, "Chef Mickey's" breakfast day 3)
+   - Tap **Continue**
+
+7. **Step 5: Choose Your Dining Option** (step 4)
+   - App calculates:
+     - **Out of Pocket:** ~$425 (meals + snacks)
+     - **Quick-Service Plan:** $483.76 (2 adults × $60.47 + 2 kids × $47.17)
+     - **Standard Plan:** $788.72 (2 adults × $98.59 + 2 kids × $76.89)
+   - Recommendation: **Out of Pocket** (cheapest)
+   - But family wants signature dining → choose **Standard Plan** anyway
+   - Tap **Continue**
+
+8. **Step 6: Review & Confirm** (step 5)
+   - See snapshot: 2 adults, 2 kids, Apr 4–10, Standard Plan
+   - Party members listed with eating styles
+   - Signature dining choices shown
+   - Tap **Save Trip**
+
+9. **Dashboard** (`/app/dashboard`)
+   - Credit summary shows:
+     - **QS:** 24 used / 0 remaining (2 × 1 × 6 nights)
+     - **TS:** 24 used / 0 remaining (2 × 1 × 6 nights)
+     - **Snacks:** 36 used / 0 remaining (4 × 1.5 avg × 6 nights)
+   - "Worth It?" card: Plan costs $788.72, estimated value is $425. **Net cost: $363.72 for signature dining + peace of mind.**
+   - Tip: "You have 24 TS credits — don't miss those table-service meals!"
+
+10. **First day — Log page** (`/app/logs`)
+    - **Planned meals card** shows:
+      - Dinner: "Be Our Guest" (TS) — tap **Eat**
+    - Credits update: **TS: 23 remaining**
+    - Quick-log buttons for ad-hoc meals
+    - History shows the BEG entry
+
+11. **Throughout trip**
+    - Log QS meals, snacks, and TS meals as they happen
+    - Dashboard updates in real time
+    - When TS credits run low, app warns: "You're low on TS credits!"
+
+12. **Post-trip**
+    - Export PDF to compare plan value vs. actual spending
+    - Adjust assumptions for next trip (e.g., "kids eat less" → try QS plan next time)
 
 ---
 
-## TODO (living checklist)
+## Installation & Running
 
-### Phase 1 (manual-first, no AI)
-- [ ] Finalize the exact input fields/rules to match the target calculator behavior
-- [ ] Add importable data format for **restaurant names** and **price estimates** (JSON)
-- [ ] Implement robust “worth it” calculation using the manually provided price dataset
-- [ ] Improve “Review & confirm” summary to show all assumptions clearly
-- [ ] Add validation + better empty states (no trip, no planned meals, etc.)
+### Prerequisites
+- Flutter 3.6+
+- Dart 3.6+
 
-### Phase 2 (Premium: AI Concierge)
-- [ ] Add Premium “concierge” chat to collect trip details from natural language
-- [ ] AI asks follow-up questions until required fields are complete
-- [ ] AI generates a draft onboarding summary + initial planned meal list
-- [ ] User can edit the summary before saving (human-in-the-loop)
+### Setup
+```bash
+cd mouseplate
+flutter pub get
+flutter run
+```
 
-### Nice-to-haves
-- [ ] Multiple trips support + switching between trips
-- [ ] Better reporting (per-day spend, per-person breakdown, planned vs actual graphs)
-- [ ] Export/share trip summary (PDF / link)
+### Running on Web (Dreamflow / CanvasKit)
+```bash
+flutter run -d web
+```
 
 ---
 
-## Compliance / data note
-This app should **not claim to scrape** proprietary pricing data. Menu prices change frequently and should be provided by the app owner (you) via a maintained dataset.
+## Recent Fixes & Improvements (Session Summary)
+
+### Bug Fixes
+1. **Snack price mismatch** — Onboarder used $7/snack vs Trip model's $9/snack → Fixed to $9 everywhere
+2. **Child signature dining pricing** — Used `60 × 0.6 = $36` vs Trip's `$28` → Fixed to use consistent child TS value
+3. **Planned meal credit loss** — Signature dining created TS planned meals on QS plans (no TS credits) → Now only create when plan includes TS
+4. **Onboarding reset on edit** — Jumping back from review and continuing lost all customizations → Fixed by preserving drafts when jumping back
+5. **Unused variables & imports** — Cleaned up linter warnings
+
+### Features Completed
+- **Per-person party profiles** in onboarding (name, eating style, snacks/day, dessert & alcohol)
+- **Signature Dining cost estimation** (2-credit restaurants)
+- **Cash mode** dashboard variant (no credit counters, shows dining budget instead)
+- **PDF export** with full trip summary, party breakdown, and usage history
+- **Step consolidation** — Removed redundant "Explore other options" step (6 steps now, was 7)
+
+---
+
+## Roadmap (Phase 2+)
+
+- [ ] **Premium AI Concierge:** Natural language trip setup via chat
+- [ ] **Multiple trips:** Save and switch between different trip plans
+- [ ] **Advanced analytics:** Per-day spend, per-person breakdown, planned vs. actual charts
+- [ ] **Dining preference templates:** Save and reuse party profiles
+- [ ] **Restaurant sync:** Auto-update restaurant catalog and pricing
+- [ ] **Cloud sync:** (Optional) Backup trips to Firebase/Supabase
+
+---
+
+## Notes
+
+- **No backend required (Phase 1):** All data is stored locally on device
+- **Restaurant data:** Hardcoded in `lib/data/wdw_restaurant_catalog.dart` — update manually or via JSON import
+- **Pricing data:** Defaults are 2026 Disney Dining Plan prices; customizable per trip on the dashboard
+- **Export format:** PDF uses `pdf` package with Material 3 styling
+- **Offline-first:** Works completely without network access
+
+---
+
+## License & Disclaimer
+
+This app is **not affiliated with The Walt Disney Company.** It's a fan-made planning tool. Always verify current prices and policies on the official Disney World website.

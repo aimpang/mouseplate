@@ -7,11 +7,31 @@ import 'package:mouseplate/pages/log_page.dart';
 import 'package:mouseplate/pages/onboarding_page.dart';
 import 'package:mouseplate/pages/paywall_page.dart';
 import 'package:mouseplate/pages/settings_page.dart';
-import 'package:mouseplate/pages/tips_page.dart';
 import 'package:mouseplate/pages/trip_onboarder_page.dart';
 import 'package:mouseplate/pages/trip_setup_method_page.dart';
 import 'package:mouseplate/pages/welcome_page.dart';
 import 'package:mouseplate/widgets/app_shell.dart';
+
+// Smooth fade+slide page transition helper
+Page<void> _fadeSlidePage(Widget child) => CustomTransitionPage(
+  child: child,
+  transitionDuration: const Duration(milliseconds: 260),
+  reverseTransitionDuration: const Duration(milliseconds: 200),
+  transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+      FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        ),
+      ),
+);
 
 class AppRoutes {
   static const String onboarding = '/onboarding';
@@ -22,7 +42,6 @@ class AppRoutes {
 
   static const String appHome = '/app/home';
   static const String appLog = '/app/log';
-  static const String appTips = '/app/tips';
   static const String appSettings = '/app/settings';
 
   static const String paywall = '/paywall';
@@ -42,7 +61,6 @@ class AppRouter {
       if (onboardingDone && loc == AppRoutes.onboarding) return hasTrip ? AppRoutes.appHome : AppRoutes.welcome;
 
       final isWelcome = loc == AppRoutes.welcome;
-      final isSetupFlow = loc == AppRoutes.setup || loc.startsWith('${AppRoutes.setup}/');
       final isInApp = loc.startsWith('/app');
 
       if (!hasTrip && isInApp) return AppRoutes.welcome;
@@ -54,27 +72,27 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.onboarding,
         name: 'onboarding',
-        pageBuilder: (context, state) => const NoTransitionPage(child: OnboardingPage()),
+        pageBuilder: (context, state) => _fadeSlidePage(OnboardingPage()),
       ),
       GoRoute(
         path: AppRoutes.welcome,
         name: 'welcome',
-        pageBuilder: (context, state) => const NoTransitionPage(child: WelcomePage()),
+        pageBuilder: (context, state) => _fadeSlidePage(WelcomePage()),
       ),
       GoRoute(
         path: AppRoutes.setup,
         name: 'setup',
-        pageBuilder: (context, state) => const NoTransitionPage(child: TripSetupMethodPage()),
+        pageBuilder: (context, state) => _fadeSlidePage(TripSetupMethodPage()),
         routes: [
           GoRoute(
             path: 'manual',
             name: 'setup_manual',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TripOnboarderPage()),
+            pageBuilder: (context, state) => _fadeSlidePage(TripOnboarderPage()),
           ),
           GoRoute(
             path: 'ai',
             name: 'setup_ai',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TripSetupMethodPage(initialTab: TripSetupMethodTab.ai)),
+            pageBuilder: (context, state) => _fadeSlidePage(TripSetupMethodPage(initialTab: TripSetupMethodTab.ai)),
           ),
         ],
       ),
@@ -85,22 +103,17 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.appHome,
             name: 'home',
-            pageBuilder: (context, state) => const NoTransitionPage(child: DashboardPage()),
+            pageBuilder: (context, state) => _fadeSlidePage(DashboardPage()),
           ),
           GoRoute(
             path: AppRoutes.appLog,
             name: 'log',
-            pageBuilder: (context, state) => const NoTransitionPage(child: LogPage()),
-          ),
-          GoRoute(
-            path: AppRoutes.appTips,
-            name: 'tips',
-            pageBuilder: (context, state) => const NoTransitionPage(child: TipsPage()),
+            pageBuilder: (context, state) => _fadeSlidePage(LogPage()),
           ),
           GoRoute(
             path: AppRoutes.appSettings,
             name: 'settings',
-            pageBuilder: (context, state) => const NoTransitionPage(child: SettingsPage()),
+            pageBuilder: (context, state) => _fadeSlidePage(SettingsPage()),
           ),
         ],
       ),

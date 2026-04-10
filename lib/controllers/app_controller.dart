@@ -39,7 +39,8 @@ class AppController extends ChangeNotifier {
   bool get onboardingComplete => _onboardingComplete;
   DashboardMode get dashboardMode => _dashboardMode;
 
-  int usedCount(UsageType type) => _usage.where((e) => e.type == type).length;
+  int usedCount(UsageType type) =>
+      _usage.where((e) => e.type == type).fold(0, (sum, e) => sum + e.credits);
 
   int get usedQuickService => usedCount(UsageType.quickService);
   int get usedTableService => usedCount(UsageType.tableService);
@@ -61,7 +62,7 @@ class AppController extends ChangeNotifier {
     final used = usedCount(type);
     final remaining = total - used;
     final clamped = remaining.clamp(_minClamp, _maxClamp);
-    return clamped is int ? clamped : clamped.toInt();
+    return clamped.toInt();
   }
 
   bool typeAvailableInPlan(UsageType type) {
@@ -202,6 +203,10 @@ class AppController extends ChangeNotifier {
     if (idx < 0) return false;
 
     final planned = t.plannedMeals[idx];
+
+    // Guard: if the plan doesn't include this credit type (e.g. a TS planned
+    // meal on a QS plan), don't silently swallow credits that don't exist.
+    if (t.usesDiningPlan && !typeAvailableInPlan(planned.type)) return false;
     final now = DateTime.now();
     final entry = UsageEntry(
       id: now.microsecondsSinceEpoch.toString(),
@@ -209,6 +214,7 @@ class AppController extends ChangeNotifier {
       usedAt: now,
       note: planned.restaurant.trim().isEmpty ? null : planned.restaurant.trim(),
       value: planned.estimatedValue,
+      credits: planned.credits,
       createdAt: now,
       updatedAt: now,
     );

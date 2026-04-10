@@ -63,24 +63,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: PageView(
                   controller: _controller,
                   onPageChanged: (value) => setState(() => _index = value),
-                  children: const [
+                  children: [
                     _OnboardingPanel(
                       icon: Icons.auto_awesome_rounded,
                       title: 'Track dining credits in seconds',
                       body:
                           'Enchanted Credits is a simple, lightweight manual tracker for Walt Disney World Quick-Service and Disney Dining Plan credits — perfect for families sharing meals and snacks.',
+                      tip: 'Tip: Credits are valid through the end of your checkout day — the app shows a live countdown so you never waste a meal.',
+                      accent: cs.primary,
                     ),
                     _OnboardingPanel(
                       icon: Icons.offline_bolt_rounded,
                       title: 'Offline + lightweight',
                       body:
                           'No accounts, no syncing, no clutter. Everything stays on your device so you can log a meal fast and get back to the fun.',
+                      tip: 'Tip: No Wi-Fi at the park? No problem. All your data lives on-device, so you can log a snack right at the booth.',
+                      accent: cs.secondary,
                     ),
                     _OnboardingPanel(
                       icon: Icons.check_circle_rounded,
                       title: 'Simple flow: set trip, then log',
                       body:
                           'Enter your party size, nights, and check-in date — the app calculates your total credits (including 2026 Kids Eat Free!). Then just log meals as you use them.',
+                      tip: 'Tip: You can always edit your trip details later from the Dashboard — just tap the pencil icon in the top right.',
+                      accent: cs.tertiary,
                     ),
                   ],
                 ),
@@ -106,7 +112,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Not affiliated with Disney. Manual entry only.',
-                style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.60)),
+                style: text.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.70)),
               ),
             ],
           ),
@@ -116,37 +122,79 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 }
 
+class _PanelHero extends StatelessWidget {
+  final IconData icon;
+  final Color primary;
+  final Color primaryContainer;
+
+  const _PanelHero({required this.icon, required this.primary, required this.primaryContainer});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  primary.withValues(alpha: 0.15),
+                  primary.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [primaryContainer, primaryContainer.withValues(alpha: 0.70)],
+              ),
+              boxShadow: AppShadows.cardFloat,
+            ),
+            child: Icon(icon, size: 32, color: primary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OnboardingPanel extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
+  final String tip;
+  final Color? accent;
 
-  const _OnboardingPanel({required this.icon, required this.title, required this.body});
+  const _OnboardingPanel({required this.icon, required this.title, required this.body, required this.tip, this.accent});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final accentColor = accent ?? cs.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: cs.primaryContainer,
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
-          ),
-          child: Icon(icon, color: cs.onPrimaryContainer),
-        ),
+        _PanelHero(icon: icon, primary: accentColor, primaryContainer: accentColor.withValues(alpha: 0.40)),
         const SizedBox(height: AppSpacing.lg),
         Text(title, style: text.headlineSmall),
         const SizedBox(height: AppSpacing.sm),
         Text(
           body,
-          style: text.bodyLarge?.copyWith(height: 1.5, color: cs.onSurface.withValues(alpha: 0.82)),
+          style: text.bodyLarge?.copyWith(height: 1.5, color: cs.onSurface.withValues(alpha: 0.90)),
         ),
         const Spacer(),
         Container(
@@ -159,12 +207,12 @@ class _OnboardingPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline_rounded, size: 18, color: cs.onSurface.withValues(alpha: 0.70)),
+              Icon(Icons.info_outline_rounded, size: 18, color: cs.onSurface.withValues(alpha: 0.85)),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Tip: Credits expire at midnight on checkout day. The app shows a countdown and reminders so you never waste a meal!',
-                  style: text.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.78), height: 1.35),
+                  tip,
+                  style: text.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.88), height: 1.35),
                 ),
               ),
             ],
@@ -193,7 +241,7 @@ class _Dots extends StatelessWidget {
           width: selected ? 18 : 8,
           height: 8,
           decoration: BoxDecoration(
-            color: selected ? cs.primary : cs.outline.withValues(alpha: 0.35),
+            color: selected ? AppColors.gold : cs.outline.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(999),
           ),
         );
